@@ -4,7 +4,7 @@ import Authmiddleware from "../middlewares/Authmiddleware.js";
 
 const Categoryroute = express.Router();
 
-Categoryroute.get("/", Authmiddleware, getcategories);
+Categoryroute.get("/categories", Authmiddleware, getcategories);
 Categoryroute.get("/:id/products", Authmiddleware, getProductsByCategory);
 Categoryroute.post("/create", Authmiddleware, createcategories);
 Categoryroute.put("/:id", Authmiddleware, updatecategories);
