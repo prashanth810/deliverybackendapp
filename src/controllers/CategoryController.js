@@ -1,22 +1,62 @@
-import CategoModel from '../models/CategoryModel.js';
+import CategoryModel from '../models/CategoryModel.js';
 import mongoose from "mongoose";
 import ProductModel from '../models/ProductModel.js';
-import CategoryModel from '../models/CategoryModel.js';
+import { v2 as cloudinary } from "cloudinary";
+import streamifier from "streamifier";
+import { Envs } from "../config/Envs.js";
 
-// get all categories with pagenatation
-const getcategories = async (req, res) => {
+// ─── Cloudinary Config ────────────────────────────────────────────────────────
+cloudinary.config({
+    cloud_name: Envs.CLOUDINARY_CLOUD_NAME,
+    api_key: Envs.CLOUDINARY_API_KEY,
+    api_secret: Envs.CLOUDINARY_API_SECRET,
+});
 
+// ─── Upload buffer → Cloudinary ───────────────────────────────────────────────
+const uploadToCloudinary = (fileBuffer, folder = "categories") => {
+    return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+            { folder },
+            (error, result) => {
+                if (error) reject(error);
+                else resolve(result.secure_url);
+            }
+        );
+        streamifier.createReadStream(fileBuffer).pipe(stream);
+    });
+};
+
+// ─── Extract public_id from Cloudinary URL ────────────────────────────────────
+const getPublicIdFromUrl = (url) => {
     try {
-        // ✅ properly extract query params
+        const parts = url.split("/upload/");
+        const afterUpload = parts[1];
+        const withoutVersion = afterUpload.replace(/^v\d+\//, "");
+        const withoutExtension = withoutVersion.replace(/\.[^/.]+$/, "");
+        return withoutExtension;
+    } catch {
+        return null;
+    }
+};
+
+// ─── Delete image from Cloudinary using URL ───────────────────────────────────
+const deleteFromCloudinary = async (imageUrl) => {
+    if (!imageUrl) return;
+    const public_id = getPublicIdFromUrl(imageUrl);
+    if (public_id) await cloudinary.uploader.destroy(public_id);
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET ALL CATEGORIES  GET /api/auth/categories
+// ─────────────────────────────────────────────────────────────────────────────
+const getcategories = async (req, res) => {
+    try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
-
         const skip = (page - 1) * limit;
-        // total count
-        const total = await CategoModel.countDocuments();
 
-        // paginated data
-        const categories = await CategoModel.find({})
+        const total = await CategoryModel.countDocuments();
+        const categories = await CategoryModel.find({})
             .skip(skip)
             .limit(limit)
             .sort({ createdAt: -1 });
@@ -29,151 +69,153 @@ const getcategories = async (req, res) => {
             totalPages: Math.ceil(total / limit),
             data: categories,
         });
-
     } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: error.message,
-        });
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
 
-
-// get products by category
+// ─────────────────────────────────────────────────────────────────────────────
+// GET PRODUCTS BY CATEGORY  GET /api/auth/:id/products
+// ─────────────────────────────────────────────────────────────────────────────
 const getProductsByCategory = async (req, res) => {
     try {
         const { id } = req.params;
         const { page = 1, limit = 10 } = req.query;
 
-        // Validate Mongo ID
         if (!mongoose.Types.ObjectId.isValid(id)) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid Category ID",
-            });
+            return res.status(400).json({ success: false, message: "Invalid Category ID" });
         }
 
         const skip = (Number(page) - 1) * Number(limit);
-
-        const products = await ProductModel.find({
-            categoryId: id,
-        })
+        const products = await ProductModel.find({ categoryId: id })
             .skip(skip)
             .limit(Number(limit))
             .sort({ createdAt: -1 });
 
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             page: Number(page),
             limit: Number(limit),
             count: products.length,
             data: products,
         });
-
     } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: error.message,
-        });
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
 
-
-// create categories
+// ─────────────────────────────────────────────────────────────────────────────
+// CREATE CATEGORY  POST /api/auth/create
+// Body: multipart/form-data — name (Text) + imageurl (File)
+// ─────────────────────────────────────────────────────────────────────────────
 const createcategories = async (req, res) => {
-    const { name, imageurl } = req.body;
     try {
+        const { name } = req.body;
+
+        // ── Validate required fields ──────────────────────────────────────────
+        if (!name) {
+            return res.status(400).json({ success: false, message: "Name is required." });
+        }
+
+        // ── Validate image ────────────────────────────────────────────────────
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: "Category image (imageurl) is required." });
+        }
+
+        // ── Check duplicate name ──────────────────────────────────────────────
         const exist = await CategoryModel.findOne({ name });
         if (exist) {
-            return res.status(400).json({ success: false, message: "Category name already exist !" });
+            return res.status(400).json({ success: false, message: "Category name already exists!" });
         }
 
-        // Validation
-        if (!name || !imageurl) {
-            return res.status(400).json({
-                success: false,
-                message: "Name and imageurl are required",
-            });
-        }
+        // ── Upload image → Cloudinary ─────────────────────────────────────────
+        const imageurlResult = await uploadToCloudinary(req.file.buffer);
 
-        const newcat = await CategoryModel.create({
-            name,
-            imageurl,
-        });
+        // ── Create category ───────────────────────────────────────────────────
+        const newcat = await CategoryModel.create({ name, imageurl: imageurlResult });
 
-        return res.status(201).json({ success: true, message: "category created !", data: newcat });
-
+        return res.status(201).json({ success: true, message: "Category created!", data: newcat });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
     }
-    catch (error) {
-        return res.status(500).json({ success: false, message: error.message })
-    }
-}
+};
 
-
-/// update categories 
+// ─────────────────────────────────────────────────────────────────────────────
+// UPDATE CATEGORY  PUT /api/auth/:id
+// Body: multipart/form-data — name (Text, optional) + imageurl (File, optional)
+// ─────────────────────────────────────────────────────────────────────────────
 const updatecategories = async (req, res) => {
     const { id } = req.params;
-    const { name, imageurl } = req.body;
+    const { name } = req.body;
+
     try {
-
+        // ── Check category exists ─────────────────────────────────────────────
+        const category = await CategoryModel.findById(id);
         if (!category) {
-            return res.status(404).json({ success: false, message: "category is not found !!" });
+            return res.status(404).json({ success: false, message: "Category not found!" });
         }
 
-        if (!name || !name.trim() || !imageurl) {
-            return res.status(400).json({
-                success: false,
-                message: "Name and imageurl are required",
-            });
+        // ── Replace image if new one uploaded ─────────────────────────────────
+        let newImageUrl = category.imageurl;
+        if (req.file) {
+            await deleteFromCloudinary(category.imageurl); // delete old from Cloudinary
+            newImageUrl = await uploadToCloudinary(req.file.buffer);
         }
 
-        // 3️⃣ Update category
-        const updatedCategory = await CategoModel.findByIdAndUpdate(
+        // ── Apply updates ─────────────────────────────────────────────────────
+        const updatedCategory = await CategoryModel.findByIdAndUpdate(
             id,
-            { name, imageurl },
+            {
+                name: name || category.name,
+                imageurl: newImageUrl,
+            },
             { new: true, runValidators: true }
         );
-
-        if (!updatedCategory) {
-            return res.status(404).json({
-                success: false,
-                message: "Category not found",
-            });
-        }
 
         return res.status(200).json({
             success: true,
             message: "Category updated successfully",
             data: updatedCategory,
         });
-
-
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
     }
-    catch (error) {
-        return res.status(500).json({ success: false, message: error.message })
-    }
-}
+};
 
-//delete categories
+// ─────────────────────────────────────────────────────────────────────────────
+// DELETE CATEGORY  DELETE /api/auth/:id
+// Also deletes all products under this category + images from Cloudinary
+// ─────────────────────────────────────────────────────────────────────────────
 const deletecategory = async (req, res) => {
     const { id } = req.params;
     try {
-
         const category = await CategoryModel.findById(id);
-
         if (!category) {
-            return res.status(404).json({ success: false, message: "Category not found !!" });
-        };
+            return res.status(404).json({ success: false, message: "Category not found!" });
+        }
 
+        // ── Delete all products' images from Cloudinary ───────────────────────
+        const products = await ProductModel.find({ categoryId: id });
+        for (const product of products) {
+            await deleteFromCloudinary(product.imageurl);
+            if (product.images && product.images.length > 0) {
+                await Promise.all(product.images.map((url) => deleteFromCloudinary(url)));
+            }
+        }
+
+        // ── Delete all products under this category ───────────────────────────
         await ProductModel.deleteMany({ categoryId: id });
 
-        await CategoModel.findOneAndDelete(id);
+        // ── Delete category image from Cloudinary ─────────────────────────────
+        await deleteFromCloudinary(category.imageurl);
 
-        return res.status(200).json({ success: true, message: "category deleted successfully !!" });
+        // ── Delete category ───────────────────────────────────────────────────
+        await CategoryModel.findByIdAndDelete(id);
+
+        return res.status(200).json({ success: true, message: "Category and all its products deleted successfully!" });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
     }
-    catch (error) {
-        returnres.status(500).json({ success: false, message: error.message });
-    }
-}
+};
 
 export { getcategories, getProductsByCategory, createcategories, updatecategories, deletecategory };
