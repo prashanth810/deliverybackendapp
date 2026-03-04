@@ -60,6 +60,13 @@ export const addProduct = async (req, res) => {
             });
         }
 
+        if (!req.files || !req.files.imageurl) {
+            return res.status(400).json({
+                success: false,
+                message: "Main product image (imageurl) is required.",
+            });
+        }
+
         // ── Check category exists ─────────────────────────────────────────────
         const category = await CategoryModel.findById(categoryId);
         if (!category) {

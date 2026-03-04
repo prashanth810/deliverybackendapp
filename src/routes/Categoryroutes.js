@@ -29,6 +29,6 @@ Categoryroute.get("/categories", getcategories);
 Categoryroute.get("/:id/products", getProductsByCategory);
 Categoryroute.post("/create", upload.single("imageurl"), createcategories);
 Categoryroute.put("/:id", upload.single("imageurl"), updatecategories);
-Categoryroute.delete("/:id", deletecategory);
+Categoryroute.delete("/category/:id", deletecategory);
 
 export default Categoryroute;
