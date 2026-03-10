@@ -1,9 +1,9 @@
 import express from 'express';
-import { login, signup } from '../controllers/Authcontroller.js';
+import { login, singup } from '../controllers/Authcontroller.js';
 
 const Userrutes = express.Router();
 
-Userrutes.post("/register", signup)
+Userrutes.post("/register", singup)
 Userrutes.post("/login", login)
 
 
