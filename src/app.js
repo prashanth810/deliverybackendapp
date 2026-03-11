@@ -4,6 +4,7 @@ import { Envs } from "./config/Envs.js";
 import Categoryroute from "./routes/Categoryroutes.js";
 import Userrutes from "./routes/Userroutes.js";
 import Productroutes from "./routes/Productroutes.js";
+import addressrouter from './routes/Addressroutes.js';
 
 
 const PORT = Envs.PORT || 7050;
@@ -21,6 +22,9 @@ app.use("/api/auth", Userrutes);
 app.use("/api/auth", Categoryroute);
 // product routes
 app.use('/api/auth', Productroutes)
+
+// address routes
+app.use("/api/auth", addressrouter);
 
 Connectiondb().then(() => {
     app.listen(PORT, () => {
