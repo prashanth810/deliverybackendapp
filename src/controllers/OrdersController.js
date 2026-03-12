@@ -17,7 +17,7 @@ const sendEmailWithRetry = async (mailOptions, retries = 3) => {
         service: "gmail",
         auth: {
             user: Envs.EMAIL_USER,
-            pass: Envs.EMAIL_PASS,  // ✅ fixed: was process.env.EMAIL_PASS
+            pass: Envs.EMAIL_PASS,
         },
     });
 
@@ -48,9 +48,7 @@ const generateInvoicePDF = (order, address) => {
         pdfDoc.text("Items:");
 
         order.items.forEach((item) => {
-            pdfDoc.text(
-                `${item.quantity} x ${item.name} - ₹${item.price}`
-            );
+            pdfDoc.text(`${item.quantity} x ${item.name} - ₹${item.price}`);
         });
 
         pdfDoc.moveDown();
@@ -59,7 +57,7 @@ const generateInvoicePDF = (order, address) => {
         pdfDoc.moveDown();
         pdfDoc.text("Delivery Address:");
         pdfDoc.text(`${address.name}`);
-        pdfDoc.text(`${address.flatNo}, ${address.buildingName}`);  // ✅ fixed: blockName → buildingName
+        pdfDoc.text(`${address.flatNo}, ${address.buildingName}`);
         pdfDoc.text(`${address.locality} - ${address.pincode}`);
 
         pdfDoc.end();
@@ -72,7 +70,7 @@ export const createRazorpayOrder = async (req, res) => {
         const { amount, currency = "INR", receipt } = req.body;
 
         const options = {
-            amount: amount * 100,   // paise
+            amount: amount * 100,
             currency,
             receipt: receipt || `receipt_${Date.now()}`,
         };
@@ -91,7 +89,7 @@ export const createRazorpayOrder = async (req, res) => {
     }
 };
 
-// ─── CREATE ORDER (after Razorpay payment success / COD) ─────────────────────
+// ─── CREATE ORDER ─────────────────────────────────────────────────────────────
 export const createOrder = async (req, res) => {
     try {
         const {
@@ -103,27 +101,47 @@ export const createOrder = async (req, res) => {
             razorpayOrderId,
         } = req.body;
 
+        // ✅ DEBUG logs - check your server terminal after hitting this API
+        console.log("📦 REQ BODY:", JSON.stringify(req.body, null, 2));
+        console.log("📍 ADDRESS:", JSON.stringify(address, null, 2));
+        console.log("🛒 ITEMS:", JSON.stringify(items, null, 2));
+        console.log("👤 USER:", req.user?._id, req.user?.email);
+
         const userId = req.user._id;
 
-        // Validate stock for each item
+        // ✅ Check required address fields before hitting DB
+        if (!address?.name || !address?.mobile || !address?.pincode || !address?.locality) {
+            return res.status(400).json({
+                message: "Missing required address fields",
+                received: address,
+            });
+        }
+
+        // ✅ Validate stock for each item
         for (const item of items) {
-            const product = await ProductModel.findById(item.productId);
+            let product;
+            try {
+                product = await ProductModel.findById(item.productId);
+            } catch (e) {
+                return res.status(400).json({ message: `Invalid productId format: ${item.productId}` });
+            }
+
             if (!product) {
-                return res.status(404).json({ message: `Product ${item.productId} not found` });
+                return res.status(404).json({ message: `Product not found: ${item.productId}` });
             }
             if (product.stock < item.quantity) {
                 return res.status(400).json({ message: `Insufficient stock for ${product.name}` });
             }
         }
 
-        // Deduct stock
+        // ✅ Deduct stock
         for (const item of items) {
             await ProductModel.findByIdAndUpdate(item.productId, {
                 $inc: { stock: -item.quantity },
             });
         }
 
-        // Create order in DB
+        // ✅ Create order in DB
         const order = await OrderModel.create({
             userId,
             items,
@@ -134,12 +152,13 @@ export const createOrder = async (req, res) => {
             razorpayOrderId: razorpayOrderId || null,
         });
 
-        // Generate PDF & send email (non-blocking)
+        console.log("✅ Order created:", order._id);
+
+        // ✅ Generate PDF & send email (non-blocking)
         try {
             const pdfBuffer = await generateInvoicePDF(order, address);
-
             const mailOptions = {
-                from: Envs.EMAIL_USER,  // ✅ fixed: was process.env.EMAIL_USER
+                from: Envs.EMAIL_USER,
                 to: req.user.email,
                 subject: `Order Confirmed - #${order._id}`,
                 text: `Hi ${address.name}, your order has been placed successfully!`,
@@ -151,7 +170,6 @@ export const createOrder = async (req, res) => {
                     },
                 ],
             };
-
             sendEmailWithRetry(mailOptions).catch((error) =>
                 console.log("Failed to send order email after retries:", error)
             );
@@ -160,9 +178,28 @@ export const createOrder = async (req, res) => {
         }
 
         res.status(201).json({ message: "Order placed successfully", order });
+
     } catch (error) {
-        console.log("createOrder error:", error);
-        res.status(500).json({ message: "Internal server error" });
+        // ✅ Mongoose ValidationError — shows exactly which field failed
+        if (error.name === "ValidationError") {
+            const fields = Object.keys(error.errors).map((key) => ({
+                field: key,
+                message: error.errors[key].message,
+            }));
+            console.log("❌ Mongoose Validation Errors:", fields);
+            return res.status(400).json({ message: "Validation failed", errors: fields });
+        }
+
+        // ✅ Mongoose CastError — wrong ObjectId format
+        if (error.name === "CastError") {
+            console.log("❌ CastError on field:", error.path);
+            return res.status(400).json({ message: `Invalid value for field: ${error.path}` });
+        }
+
+        // ✅ Any other error — show exact message
+        console.log("❌ createOrder error:", error.message);
+        console.log("❌ createOrder stack:", error.stack);
+        res.status(500).json({ message: error.message });
     }
 };
 
@@ -221,7 +258,6 @@ export const updateOrderStatus = async (req, res) => {
         const { orderId } = req.params;
         const { status } = req.body;
 
-        // ✅ fixed: matches your OrderModel enum exactly
         const validStatuses = ["Pending", "Processing", "Shipped", "Delivered", "Cancelled"];
         if (!validStatuses.includes(status)) {
             return res.status(400).json({ message: "Invalid status" });
@@ -252,12 +288,10 @@ export const cancelOrder = async (req, res) => {
 
         if (!order) return res.status(404).json({ message: "Order not found" });
 
-        // ✅ fixed: matches your OrderModel enum exactly
         if (["Shipped", "Delivered"].includes(order.status)) {
             return res.status(400).json({ message: "Cannot cancel order at this stage" });
         }
 
-        // Restore stock
         for (const item of order.items) {
             await ProductModel.findByIdAndUpdate(item.productId, {
                 $inc: { stock: item.quantity },
