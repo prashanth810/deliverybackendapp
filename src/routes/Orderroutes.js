@@ -6,7 +6,7 @@ import {
     updateOrderStatus, cancelOrder, createRazorpayOrder
 } from "../controllers/OrdersController.js";
 
-const router = express.Router();
+const Orderroutes = express.Router();
 
 // ─── Zod Validation Schemas ───────────────────────────────────────────────────
 const razorpaySchema = z.object({
@@ -19,12 +19,23 @@ const orderSchema = z.object({
     items: z.array(
         z.object({
             productId: z.string(),
+            name: z.string(),
             quantity: z.number().positive(),
             price: z.number().positive(),
         })
     ),
     totalAmount: z.number().positive(),
-    address: z.object({}),
+    address: z.object({               // ✅ fix: was z.object({}) which strips everything
+        name: z.string(),
+        mobile: z.string(),
+        flatNo: z.string().optional(),
+        buildingName: z.string().optional(),
+        street: z.string().optional(),
+        landmark: z.string().optional(),
+        locality: z.string(),
+        pincode: z.string(),
+        type: z.string().optional(),
+    }),
     paymentMethod: z.string(),
     paymentId: z.string().optional(),
     razorpayOrderId: z.string().optional(),
@@ -43,16 +54,16 @@ const validate = (schema) => (req, res, next) => {
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 // Razorpay
-router.post("/razorpay/create", Authmiddleware, validate(razorpaySchema), createRazorpayOrder);
+Orderroutes.post("/razorpay/create", Authmiddleware, validate(razorpaySchema), createRazorpayOrder);
 
 // Admin
-router.get("/", getOrders);
-router.patch("/:orderId/status", Authmiddleware, updateOrderStatus);
+Orderroutes.get("/", getOrders);
+Orderroutes.patch("/:orderId/status", Authmiddleware, updateOrderStatus);
 
 // User
-router.get("/my-orders", Authmiddleware, getUserOrders);
-router.get("/:orderId", Authmiddleware, getOrderById);
-router.post("/ordercreate", Authmiddleware, validate(orderSchema), createOrder);
-router.patch("/:orderId/cancel", Authmiddleware, cancelOrder);
+Orderroutes.get("/my-orders", Authmiddleware, getUserOrders);
+Orderroutes.get("/:orderId", Authmiddleware, getOrderById);
+Orderroutes.post("/ordercreate", Authmiddleware, validate(orderSchema), createOrder);
+Orderroutes.patch("/:orderId/cancel", Authmiddleware, cancelOrder);
 
-export default router;
+export default Orderroutes;
