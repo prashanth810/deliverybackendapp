@@ -40,6 +40,9 @@ const AddressSchema = new mongoose.Schema({
     locality: {
         type: String,
         required: true,
+    },
+    isDefault: {
+        type: Boolean,
     }
 }, { timestamps: true, minimize: false });
 

@@ -95,6 +95,7 @@ const login = async (req, res) => {
     }
 }
 
+// get profile data by token 
 const getprofile = async (req, res) => {
     try {
         const user = req.user;

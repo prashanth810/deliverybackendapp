@@ -17,4 +17,9 @@ export const Envs = {
     EMAIL_USER: env.EMAIL_USER,
     EMAIL_HOST: env.EMAIL_HOST,
     EMAIL_PASS: env.EMAIL_PASS,
+
+    // # razor pay 
+    RAZORPAY_KEY: process.env.RAZORPAY_KEY,
+    RAZORPAY_SECRET_KEY: process.env.RAZORPAY_SECRET_KEY,
+    RAZORPAY_WEBHOOK_SECRET: process.env.RAZORPAY_WEBHOOK_SECRET
 };
