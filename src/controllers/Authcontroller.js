@@ -110,4 +110,18 @@ const getprofile = async (req, res) => {
         return res.status(500).json({ success: false, message: error.message })
     }
 }
-export { singup, login, getprofile };
+
+// get all user for admin
+const Allusers = async (req, res) => {
+    try {
+        const users = await UserModel.find({});
+        if (!users) {
+            return res.status(404).json({ success: false, message: "No users found !!!" });
+        }
+        return res.status(200).json({ success: true, data: users });
+    }
+    catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
+export { singup, login, getprofile, Allusers };
