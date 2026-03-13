@@ -62,7 +62,7 @@ Orderroutes.patch("/:orderId/status", Authmiddleware, updateOrderStatus);
 
 // User
 Orderroutes.get("/my-orders", Authmiddleware, getUserOrders);
-Orderroutes.get("/:orderId", Authmiddleware, getOrderById);
+Orderroutes.get("/orders/:orderId", getOrderById);
 Orderroutes.post("/ordercreate", Authmiddleware, validate(orderSchema), createOrder);
 Orderroutes.patch("/:orderId/cancel", Authmiddleware, cancelOrder);
 

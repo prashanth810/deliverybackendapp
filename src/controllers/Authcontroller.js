@@ -114,10 +114,15 @@ const getprofile = async (req, res) => {
 // get all user for admin
 const Allusers = async (req, res) => {
     try {
+        const user = req.user;
         const users = await UserModel.find({});
         if (!users) {
             return res.status(404).json({ success: false, message: "No users found !!!" });
         }
+        // if (!user.role === "ADMIN") {
+        //     return res.status(403).json({ success: false, message: "Admin only access !!!" });
+        // }
+
         return res.status(200).json({ success: true, data: users });
     }
     catch (error) {
