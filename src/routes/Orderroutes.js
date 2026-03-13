@@ -57,7 +57,7 @@ const validate = (schema) => (req, res, next) => {
 Orderroutes.post("/razorpay/create", Authmiddleware, validate(razorpaySchema), createRazorpayOrder);
 
 // Admin
-Orderroutes.get("/", getOrders);
+Orderroutes.get("/adminorders", getOrders);
 Orderroutes.patch("/:orderId/status", Authmiddleware, updateOrderStatus);
 
 // User
