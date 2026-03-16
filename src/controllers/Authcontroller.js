@@ -4,6 +4,8 @@ import bcrypt from 'bcrypt';
 import { sendMail } from "../config/Sendmail.js";
 import { Envs } from "../config/Envs.js";
 import CreateToken from "../config/CreateToken.js";
+import pkg from 'google-auth-library';
+const { OAuth2Client } = pkg;
 
 // sing up
 const singup = async (req, res) => {
@@ -129,4 +131,57 @@ const Allusers = async (req, res) => {
         return res.status(500).json({ success: false, message: error.message });
     }
 }
-export { singup, login, getprofile, Allusers };
+
+const client = new OAuth2Client(Envs.GOOGLE_CLIENT_ID);
+
+const Handlegooglelogin = async (req, res) => {
+    const { idToken } = req.body;
+    try {
+        if (!idToken) {
+            return res.status(400).json({ success: false, message: "Google token is required !!!" });
+        }
+
+        // ✅ Bug 2 fixed — verifyIdToken not verifyToken
+        // ✅ Bug 3 fixed — renamed to ticket
+        const ticket = await client.verifyIdToken({
+            idToken,
+            audience: Envs.GOOGLE_CLIENT_ID,
+        });
+
+        const payload = ticket.getPayload();
+        const { email, name, picture } = payload; // ✅ destructure here
+
+        let user = await UserModel.findOne({ email }); // ✅ findOne not find
+
+        if (!user) {
+            user = await UserModel.create({
+                email,
+                name,
+                avatar: picture,
+                phone: "",
+                password: "",
+                googleAuth: true,
+            });
+
+            await sendMail(
+                email,
+                "Welcome to Delivery App 🎉",
+                `<h2>Welcome ${name}</h2>
+                <p>Your account was created with Google.</p>
+                <p>Start ordering now 🚀</p>`
+            );
+        }
+
+        // ✅ Bug 1 fixed — renamed to jwtToken (no duplicate const token)
+        const jwtToken = await CreateToken(user._id);
+
+        const userObject = user.toObject();
+        delete userObject.password;
+
+        return res.status(200).json({ success: true, message: "Google login success", data: userObject, token: jwtToken });
+    }
+    catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
+export { singup, login, getprofile, Allusers, Handlegooglelogin };

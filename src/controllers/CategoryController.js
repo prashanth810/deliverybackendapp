@@ -49,6 +49,7 @@ const deleteFromCloudinary = async (imageUrl) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // GET ALL CATEGORIES  GET /api/auth/categories
 // ─────────────────────────────────────────────────────────────────────────────
+// ─── GET ALL CATEGORIES ───
 const getcategories = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
@@ -59,7 +60,7 @@ const getcategories = async (req, res) => {
         const categories = await CategoryModel.find({})
             .skip(skip)
             .limit(limit)
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: 1 }); // ← changed -1 to 1 (oldest first)
 
         return res.status(200).json({
             success: true,
@@ -73,7 +74,6 @@ const getcategories = async (req, res) => {
         return res.status(500).json({ success: false, message: error.message });
     }
 };
-
 // ─────────────────────────────────────────────────────────────────────────────
 // GET PRODUCTS BY CATEGORY  GET /api/auth/:id/products
 // ─────────────────────────────────────────────────────────────────────────────
