@@ -75,7 +75,7 @@ export const getAddressById = async (req, res) => {
     const userId = req.params.id;
 
     try {
-        const address = await AddressModel.findOne({ userId: userId });
+        const address = await AddressModel.find({ userId: userId });
 
         if (!address) {
             return sendResponse(res, 404, false, 'Address not found');
