@@ -57,12 +57,8 @@ const sendResponse = (res, statusCode, success, message, data = null) => {
 // GET /api/addresses
 export const getAllAddresses = async (req, res) => {
     try {
-        const userId = req.user._id;
-        if (!userId) {
-            return res.status(400).json({ success: false, message: "User ID is required" });
-        }
-
-        const filter = { userId };
+        const filter = {};
+        if (req.query.userId) filter.userId = req.query.userId;
         if (req.query.type) filter.type = req.query.type;
 
         const addresses = await AddressModel.find(filter).sort({ createdAt: -1 });
@@ -71,6 +67,7 @@ export const getAllAddresses = async (req, res) => {
         return sendResponse(res, 500, false, error.message);
     }
 };
+
 
 // ─── GET single address ───────────────────────────────────────────────────────
 // GET /api/addresses/:id
