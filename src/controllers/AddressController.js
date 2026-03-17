@@ -72,16 +72,20 @@ export const getAllAddresses = async (req, res) => {
 // ─── GET single address ───────────────────────────────────────────────────────
 // GET /api/addresses/:id
 export const getAddressById = async (req, res) => {
+    const userId = req.params.id;
+
     try {
-        const address = await AddressModel.findById(req.params.id);
-        if (!address) return sendResponse(res, 404, false, 'Address not found');
+        const address = await AddressModel.findOne({ userId: userId });
+
+        if (!address) {
+            return sendResponse(res, 404, false, 'Address not found');
+        }
+
         return sendResponse(res, 200, true, 'Address fetched successfully', address);
     } catch (error) {
         return sendResponse(res, 500, false, error.message);
     }
 };
-
-
 // ─── CREATE address ───────────────────────────────────────────────────────────
 // POST /api/addresses
 export const createAddress = async (req, res) => {
