@@ -9,7 +9,7 @@ const { OAuth2Client } = pkg;
 
 // sing up
 const singup = async (req, res) => {
-    const { email, phone, password } = req.body;
+    const { email, phone, password, role } = req.body;
     try {
         const exist = await UserModel.findOne({ email });
         if (exist) {
@@ -35,6 +35,7 @@ const singup = async (req, res) => {
             email,
             phone,
             password: hashpass,
+            role,
         });
 
         // send welcome email
@@ -57,7 +58,7 @@ const singup = async (req, res) => {
 
 // login
 const login = async (req, res) => {
-    const { email, password } = req.body;
+    const { email, password, role } = req.body;
     try {
         const user = await UserModel.findOne({ email });
 

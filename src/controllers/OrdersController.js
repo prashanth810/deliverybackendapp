@@ -101,12 +101,6 @@ export const createOrder = async (req, res) => {
             razorpayOrderId,
         } = req.body;
 
-        // ✅ DEBUG logs - check your server terminal after hitting this API
-        console.log("📦 REQ BODY:", JSON.stringify(req.body, null, 2));
-        console.log("📍 ADDRESS:", JSON.stringify(address, null, 2));
-        console.log("🛒 ITEMS:", JSON.stringify(items, null, 2));
-        console.log("👤 USER:", req.user?._id, req.user?.email);
-
         const userId = req.user._id;
 
         // ✅ Check required address fields before hitting DB
