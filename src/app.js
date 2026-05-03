@@ -7,6 +7,7 @@ import Productroutes from "./routes/Productroutes.js";
 import addressrouter from './routes/Addressroutes.js';
 import { razorpayWebhook } from "./utils/Razorpaywebhook.js";
 import Orderroutes from "./routes/Orderroutes.js";
+import Bulkupload from "./routes/Bulkupload.js";
 
 
 const PORT = Envs.PORT || 7050;
@@ -28,7 +29,11 @@ app.use('/api/auth', Productroutes)
 // address routes
 app.use("/api/auth", addressrouter);
 
+//order routes
 app.use("/api/auth", Orderroutes);
+
+// bulk uploads
+app.use("/api/auth", Bulkupload);
 
 // ⚠️ IMPORTANT: This must be BEFORE express.json() middleware
 app.post("/api/v1/webhook", express.raw({ type: "application/json" }), razorpayWebhook);
